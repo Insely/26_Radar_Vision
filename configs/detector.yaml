@@ -1,13 +1,8 @@
 %YAML:1.0
 ---
 Detector:
-  # 颜色阈值 (HSV空间, 蓝色)
-  H_min: 90
-  H_max: 130
-  S_min: 50
-  S_max: 255
-  V_min: 100
-  V_max: 255
+  # 灰度二值化阈值（亮度高于此视为发光体）
+  BinaryThresh: 200
   MinArea: 30.0          # 最小连通区域面积
   MinFoundFrame: 3       # 连续检测多少帧才确认为目标
 

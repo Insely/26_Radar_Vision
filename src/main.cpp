@@ -12,13 +12,15 @@ int main() {
 
   // 改用工业相机
   // 读取setting.yaml
-  cv::FileStorage sysfs("../configs/setting.yaml", cv::FileStorage::READ);
+  cv::FileStorage sysfs;
   bool use_demo = false, enable_ui = true;
-  int camera_fps = 30;
-  if (sysfs.isOpened()) {
+  int camera_fps = 120;
+  if (sysfs.open("../configs/setting.yaml", cv::FileStorage::READ)) {
     if (!sysfs["UseDemoVideo"].empty()) sysfs["UseDemoVideo"] >> use_demo;
     if (!sysfs["EnableUI"].empty()) sysfs["EnableUI"] >> enable_ui;
     if (!sysfs["CameraFPS"].empty()) sysfs["CameraFPS"] >> camera_fps;
+  } else {
+    std::cerr << "Warning: setting.yaml not found, using defaults" << std::endl;
   }
 
   Camera camera;

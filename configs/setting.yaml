@@ -6,4 +6,4 @@ UseDemoVideo: 1
 # 是否启用UI窗口显示
 EnableUI: 1
 # 相机帧率（单位：FPS，建议15~60）
-CameraFPS: 30
+CameraFPS: 120

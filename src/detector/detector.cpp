@@ -13,18 +13,8 @@ bool Detector::init(const std::string &config_path) {
     return false;
   }
 
-  if (!fs["Detector"]["H_min"].empty())
-    fs["Detector"]["H_min"] >> h_min_;
-  if (!fs["Detector"]["H_max"].empty())
-    fs["Detector"]["H_max"] >> h_max_;
-  if (!fs["Detector"]["S_min"].empty())
-    fs["Detector"]["S_min"] >> s_min_;
-  if (!fs["Detector"]["S_max"].empty())
-    fs["Detector"]["S_max"] >> s_max_;
-  if (!fs["Detector"]["V_min"].empty())
-    fs["Detector"]["V_min"] >> v_min_;
-  if (!fs["Detector"]["V_max"].empty())
-    fs["Detector"]["V_max"] >> v_max_;
+  if (!fs["Detector"]["BinaryThresh"].empty())
+    fs["Detector"]["BinaryThresh"] >> binary_thresh_;
 
   if (!fs["Detector"]["MinArea"].empty())
     fs["Detector"]["MinArea"] >> min_area_;
@@ -45,8 +35,7 @@ bool Detector::init(const std::string &config_path) {
     fs["Detector"]["RectRatioTolerance"] >> rect_ratio_tolerance_;
 
   std::cout << "[Detector] Config Loaded: "
-            << "H=" << h_min_ << "-" << h_max_ << ", S=" << s_min_ << "-"
-            << s_max_ << ", V=" << v_min_ << "-" << v_max_
+            << "BinaryThresh=" << binary_thresh_
             << ", MinArea=" << min_area_
             << ", RectRatio=" << rect_ratio_target_
             << " +/-" << rect_ratio_tolerance_
@@ -55,10 +44,11 @@ bool Detector::init(const std::string &config_path) {
 }
 
 void Detector::preprocess(const cv::Mat &input) {
-  cv::cvtColor(input, hsv_, cv::COLOR_BGR2HSV);
+  // BGR -> 灰度
+  cv::cvtColor(input, gray_, cv::COLOR_BGR2GRAY);
 
-  cv::inRange(hsv_, cv::Scalar(h_min_, s_min_, v_min_),
-              cv::Scalar(h_max_, s_max_, v_max_), mask_);
+  // 二值化：高于阈值的为白（发光体）
+  cv::threshold(gray_, mask_, binary_thresh_, 255, cv::THRESH_BINARY);
 
   // 水平方向膨胀，把同一灯条内相邻的 LED 段合并成一条
   cv::Mat h_kernel =
