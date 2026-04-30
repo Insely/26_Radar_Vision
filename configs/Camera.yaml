@@ -1,0 +1,7 @@
+%YAML:1.0
+---
+Camera:
+  ExposureTime: 10000.0   # 曝光时间 (us)
+  Gain: 10.0             # 增益
+  Gamma: 0.8             # Gamma
+  TriggerMode: 0         # 0: Continuous, 1: External

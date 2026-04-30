@@ -1,0 +1,27 @@
+%YAML:1.0
+---
+Detector:
+  # 颜色阈值 (HSV空间, 蓝色)
+  H_min: 90
+  H_max: 130
+  S_min: 50
+  S_max: 255
+  V_min: 100
+  V_max: 255
+  MinArea: 30.0          # 最小连通区域面积
+  MinFoundFrame: 3       # 连续检测多少帧才确认为目标
+
+  # 灯条筛选参数
+  BarMinRatio: 1.5       # 灯条最小长宽比
+  BarMaxRatio: 20.0      # 灯条最大长宽比
+
+  # 灯条配对参数
+  PairLengthDiff: 0.6    # 两灯条长度差异容忍度
+  PairXDiffRatio: 0.8    # 水平偏移/平均长度 最大值
+
+  # 矩形比例参数（核心判据）
+  # 实际: 宽5cm, 高4.5cm, 宽高比 ≈ 1.11
+  RectRatioTarget: 1.11  # 目标矩形宽高比
+  RectRatioTolerance: 0.7 # 宽高比容差（允许 0.41 ~ 1.81）
+
+
