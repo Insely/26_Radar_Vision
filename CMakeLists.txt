@@ -21,15 +21,18 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${OpenCV_INCLUDE_DIRS} # 显式加入 OpenCV 的头文件路径
 )
 
+# 查找线程库
+find_package(Threads REQUIRED)
+
 # 6. 链接库
 # 查找 MVS 库
 find_library(MVS_LIB MvCameraControl PATHS /opt/MVS/lib/64 /opt/MVS/lib /usr/lib NO_DEFAULT_PATH)
 if (MVS_LIB)
     message(STATUS "Found MVS SDK: ${MVS_LIB}")
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} ${MVS_LIB})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} ${MVS_LIB} Threads::Threads)
 else()
     message(WARNING "MVS SDK not found! Compilation might fail.")
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} Threads::Threads)
 endif()
 # 查找 MVS 库 (假设在 /opt/MVS/lib/64 或 /opt/MVS/lib)
 # find_library(MVS_LIB MvCameraControl PATHS /opt/MVS/lib/64 /opt/MVS/lib /usr/lib)
