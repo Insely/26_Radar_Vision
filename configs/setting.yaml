@@ -2,14 +2,20 @@
 ---
 # 系统运行配置
 # 启用demo视频还是相机捕获（1=demo.mp4，0=工业相机）
-UseDemoVideo: 1
+UseDemoVideo: 0
 # 是否启用UI窗口显示
 EnableUI: 1
+# 显示二值化窗口（1=开启，0=关闭）
+ShowBinarized: 1
+# 显示灰度图窗口（1=开启，0=关闭）
+ShowGray: 0
+# 显示ROI窗口（1=开启，0=关闭）
+ShowROI: 1
 # 相机采集帧率（单位：FPS，控制工业相机硬件帧率）
 CameraFPS: 120
 # Demo视频播放帧率（单位：FPS，0=自动读取视频原始帧率）
 DemoFPS: 30
 # 串口设备名
-SerialPort: "/dev/ttyUSB0"
+SerialPort: "/dev/ttyACM0"
 # 串口波特率
 SerialBaud: 115200

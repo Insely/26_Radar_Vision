@@ -18,6 +18,8 @@ std::mutex result_mtx;
 DetectionResult shared_result;
 cv::Mat shared_display_frame;
 cv::Mat shared_mask;
+cv::Mat shared_roi_display;
+cv::Mat shared_gray;
 bool result_ready = false;
 
 std::atomic<bool> running{true};
@@ -119,6 +121,8 @@ void detectThread(Detector &detector, SerialPort &serial) {
       std::lock_guard<std::mutex> lock(result_mtx);
       shared_display_frame = display;
       shared_mask = detector.getMask().clone();
+      shared_roi_display = detector.getRoiDisplay().clone();
+      shared_gray = detector.getGray().clone();
       shared_result = result;
       result_ready = true;
     }
@@ -128,6 +132,7 @@ void detectThread(Detector &detector, SerialPort &serial) {
 int main() {
   cv::FileStorage sysfs;
   bool use_demo = false, enable_ui = true;
+  bool show_binarized = true, show_gray = false, show_roi = true;
   int camera_fps = 120;
   int demo_fps_cfg = 0; // 0=自动读取视频原始帧率
   int display_wait_ms = 1000 / camera_fps;
@@ -138,6 +143,12 @@ int main() {
       sysfs["UseDemoVideo"] >> use_demo;
     if (!sysfs["EnableUI"].empty())
       sysfs["EnableUI"] >> enable_ui;
+    if (!sysfs["ShowBinarized"].empty())
+      sysfs["ShowBinarized"] >> show_binarized;
+    if (!sysfs["ShowGray"].empty())
+      sysfs["ShowGray"] >> show_gray;
+    if (!sysfs["ShowROI"].empty())
+      sysfs["ShowROI"] >> show_roi;
     if (!sysfs["CameraFPS"].empty())
       sysfs["CameraFPS"] >> camera_fps;
     if (!sysfs["DemoFPS"].empty())
@@ -156,10 +167,11 @@ int main() {
   serial.init();
 
   Camera camera;
-  bool use_camera =
-      !use_demo && camera.init("../configs/Camera.yaml", camera_fps);
+  bool use_camera = false;
   cv::VideoCapture video_cap;
-  if (!use_camera) {
+
+  if (use_demo) {
+    // YAML 中明确指定使用 demo 视频
     std::cerr << "Using demo.mp4" << std::endl;
     video_cap.open("../demo.mp4");
     if (!video_cap.isOpened()) {
@@ -179,6 +191,12 @@ int main() {
                 << std::endl;
     }
   } else {
+    // 使用工业相机
+    use_camera = camera.init("../configs/Camera.yaml", camera_fps);
+    if (!use_camera) {
+      std::cerr << "ERROR: Camera init failed! No camera found." << std::endl;
+      return -1;
+    }
     display_wait_ms = std::max(1, 1000 / camera_fps);
   }
 
@@ -187,9 +205,19 @@ int main() {
 
   if (enable_ui) {
     cv::namedWindow("demo", cv::WINDOW_NORMAL);
-    cv::namedWindow("Binarized", cv::WINDOW_NORMAL);
     cv::resizeWindow("demo", 800, 600);
-    cv::resizeWindow("Binarized", 800, 600);
+    if (show_binarized) {
+      cv::namedWindow("Binarized", cv::WINDOW_NORMAL);
+      cv::resizeWindow("Binarized", 800, 600);
+    }
+    if (show_gray) {
+      cv::namedWindow("Gray", cv::WINDOW_NORMAL);
+      cv::resizeWindow("Gray", 800, 600);
+    }
+    if (show_roi) {
+      cv::namedWindow("ROI", cv::WINDOW_NORMAL);
+      cv::resizeWindow("ROI", 400, 300);
+    }
   }
 
   // 启动取帧线程和检测线程
@@ -204,12 +232,14 @@ int main() {
 
   while (running) {
     if (enable_ui) {
-      cv::Mat display, mask;
+      cv::Mat display, mask, roi_disp, gray;
       {
         std::lock_guard<std::mutex> lock(result_mtx);
         if (result_ready) {
           display = shared_display_frame.clone();
           mask = shared_mask.clone();
+          roi_disp = shared_roi_display.clone();
+          gray = shared_gray.clone();
           result_ready = false;
         }
       }
@@ -233,8 +263,14 @@ int main() {
 
         cv::imshow("demo", display);
       }
-      if (!mask.empty()) {
+      if (show_binarized && !mask.empty()) {
         cv::imshow("Binarized", mask);
+      }
+      if (show_gray && !gray.empty()) {
+        cv::imshow("Gray", gray);
+      }
+      if (show_roi && !roi_disp.empty()) {
+        cv::imshow("ROI", roi_disp);
       }
       int key = cv::waitKey(display_wait_ms);
       if (key == 27) {

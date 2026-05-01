@@ -34,13 +34,20 @@ bool Detector::init(const std::string &config_path) {
   if (!fs["Detector"]["RectRatioTolerance"].empty())
     fs["Detector"]["RectRatioTolerance"] >> rect_ratio_tolerance_;
 
+  if (!fs["Detector"]["EnemyColor"].empty()) {
+    std::string color_str;
+    fs["Detector"]["EnemyColor"] >> color_str;
+    enemy_color_ = (color_str == "blue") ? 1 : 0;
+  }
+
   if (!fs["Detector"]["YawOffset"].empty())
     fs["Detector"]["YawOffset"] >> yaw_offset_;
   if (!fs["Detector"]["PitchOffset"].empty())
     fs["Detector"]["PitchOffset"] >> pitch_offset_;
 
   std::cout << "[Detector] Config Loaded: "
-            << "BinaryThresh=" << binary_thresh_
+            << "EnemyColor=" << (enemy_color_ == 0 ? "red" : "blue")
+            << ", BinaryThresh=" << binary_thresh_
             << ", MinArea=" << min_area_
             << ", RectRatio=" << rect_ratio_target_
             << " +/-" << rect_ratio_tolerance_
@@ -49,24 +56,85 @@ bool Detector::init(const std::string &config_path) {
 }
 
 void Detector::preprocess(const cv::Mat &input) {
-  // BGR -> 灰度
-  cv::cvtColor(input, gray_, cv::COLOR_BGR2GRAY);
+  // 1. HSV 提取敌方颜色区域
+  cv::Mat hsv;
+  cv::cvtColor(input, hsv, cv::COLOR_BGR2HSV);
 
-  // 二值化：高于阈值的为白（发光体）
-  cv::threshold(gray_, mask_, binary_thresh_, 255, cv::THRESH_BINARY);
+  cv::Mat color_mask;
+  if (enemy_color_ == 0) {
+    // 红色: H 在 0~10 和 170~180
+    cv::Mat m1, m2;
+    cv::inRange(hsv, cv::Scalar(0, 50, 50), cv::Scalar(10, 255, 255), m1);
+    cv::inRange(hsv, cv::Scalar(170, 50, 50), cv::Scalar(180, 255, 255), m2);
+    color_mask = m1 | m2;
+  } else {
+    // 蓝色: H 在 100~130
+    cv::inRange(hsv, cv::Scalar(100, 50, 50), cv::Scalar(130, 255, 255), color_mask);
+  }
+
+  // 膨胀颜色 mask，合并相邻色块
+  cv::Mat dilate_kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 15));
+  cv::dilate(color_mask, color_mask, dilate_kernel);
+
+  // 2. 找最大颜色连通区域，取其 bounding rect 作为 ROI
+  std::vector<std::vector<cv::Point>> color_contours;
+  cv::findContours(color_mask, color_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+  cv::Rect roi(0, 0, input.cols, input.rows); // 默认全图
+  if (!color_contours.empty()) {
+    int max_idx = 0;
+    double max_area = 0;
+    for (size_t i = 0; i < color_contours.size(); i++) {
+      double a = cv::contourArea(color_contours[i]);
+      if (a > max_area) {
+        max_area = a;
+        max_idx = (int)i;
+      }
+    }
+    roi = cv::boundingRect(color_contours[max_idx]);
+    // 适当扩大 ROI 留余量
+    int pad = std::max(roi.width, roi.height) / 2;
+    roi.x = std::max(0, roi.x - pad);
+    roi.y = std::max(0, roi.y - pad);
+    roi.width = std::min(input.cols - roi.x, roi.width + pad * 2);
+    roi.height = std::min(input.rows - roi.y, roi.height + pad * 2);
+  }
+
+  // 保存颜色 mask 和 ROI 画面供调试显示
+  color_mask_ = color_mask.clone();
+  roi_display_ = input(roi).clone();
+  roi_ = roi;
+
+  // 3. 仅在 ROI 内做灰度 + 二值化
+  gray_ = cv::Mat::zeros(input.size(), CV_8UC1);
+  mask_ = cv::Mat::zeros(input.size(), CV_8UC1);
+
+  cv::Mat roi_input = input(roi);
+  cv::Mat roi_gray;
+  cv::cvtColor(roi_input, roi_gray, cv::COLOR_BGR2GRAY);
+  roi_gray.copyTo(gray_(roi));
+
+  cv::Mat roi_mask;
+  cv::threshold(roi_gray, roi_mask, binary_thresh_, 255, cv::THRESH_BINARY);
+  // 用颜色 mask 过滤，只保留敌方颜色像素
+  cv::bitwise_and(roi_mask, color_mask(roi), roi_mask);
+  roi_mask.copyTo(mask_(roi));
+
+  // 形态学操作仅在 ROI 子区域内进行
+  cv::Mat mask_roi = mask_(roi);
 
   // 水平方向膨胀，把同一灯条内相邻的 LED 段合并成一条
   cv::Mat h_kernel =
       cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 3));
-  cv::dilate(mask_, mask_, h_kernel);
+  cv::dilate(mask_roi, mask_roi, h_kernel);
 
   // 闭运算填补内部空隙
   cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-  cv::morphologyEx(mask_, mask_, cv::MORPH_CLOSE, kernel);
+  cv::morphologyEx(mask_roi, mask_roi, cv::MORPH_CLOSE, kernel);
 
   // 高斯模糊 + 再次二值化，平滑边缘锯齿
-  cv::GaussianBlur(mask_, mask_, cv::Size(5, 5), 0);
-  cv::threshold(mask_, mask_, 128, 255, cv::THRESH_BINARY);
+  cv::GaussianBlur(mask_roi, mask_roi, cv::Size(5, 5), 0);
+  cv::threshold(mask_roi, mask_roi, 128, 255, cv::THRESH_BINARY);
 }
 
 // 从 RotatedRect 构造 LightBar，计算长轴两端点

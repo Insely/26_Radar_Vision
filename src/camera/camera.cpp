@@ -75,6 +75,27 @@ bool Camera::init(const std::string &config_path, float target_fps) {
   if (!config_path.empty()) {
     cv::FileStorage fs(config_path, cv::FileStorage::READ);
     if (fs.isOpened()) {
+      // 设置相机分辨率 (Width / Height)
+      int width = 0, height = 0;
+      if (!fs["Camera"]["Width"].empty())
+        fs["Camera"]["Width"] >> width;
+      if (!fs["Camera"]["Height"].empty())
+        fs["Camera"]["Height"] >> height;
+      if (width > 0) {
+        nRet = MV_CC_SetIntValue(handle_, "Width", width);
+        if (MV_OK != nRet)
+          std::cerr << "Set Width fail!" << std::endl;
+        else
+          std::cout << "Set Width: " << width << std::endl;
+      }
+      if (height > 0) {
+        nRet = MV_CC_SetIntValue(handle_, "Height", height);
+        if (MV_OK != nRet)
+          std::cerr << "Set Height fail!" << std::endl;
+        else
+          std::cout << "Set Height: " << height << std::endl;
+      }
+
       float exposure = 5000.0;
       float gain = 0.0;
       float gamma = 0.8; // default
@@ -209,6 +230,9 @@ bool Camera::getFrame(cv::Mat &frame) {
   frame =
       cv::Mat(stImageInfo.nHeight, stImageInfo.nWidth, CV_8UC3, pDataForRGB_)
           .clone();
+
+  // 旋转180度
+  cv::flip(frame, frame, -1);
 
   return true;
 }

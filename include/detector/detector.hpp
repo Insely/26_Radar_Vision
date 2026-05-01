@@ -25,8 +25,10 @@ public:
   bool init(const std::string &config_path);
   DetectionResult process(const cv::Mat &frame);
 
-  cv::Mat getMask() const { return mask_; }
-  cv::Mat getGray() const { return gray_; }
+  cv::Mat getMask() const { return mask_.empty() ? mask_ : mask_(roi_).clone(); }
+  cv::Mat getGray() const { return gray_.empty() ? gray_ : gray_(roi_).clone(); }
+  cv::Mat getColorMask() const { return color_mask_; }
+  cv::Mat getRoiDisplay() const { return roi_display_; }
 
 private:
   void preprocess(const cv::Mat &input);
@@ -52,10 +54,14 @@ private:
   double rect_ratio_target_ = 1.11;  // 目标宽高比
   double rect_ratio_tolerance_ = 0.7; // 宽高比容差（允许 0.41 ~ 1.81）
 
+  // 敌方颜色: 0=red, 1=blue
+  int enemy_color_ = 0;
+
   // 偏置值（补偿相机与激光安装位置差异）
   double yaw_offset_ = 0.0;
   double pitch_offset_ = 0.0;
 
   int found_count_ = 0;
-  cv::Mat gray_, mask_;
+  cv::Rect roi_;
+  cv::Mat gray_, mask_, color_mask_, roi_display_;
 };

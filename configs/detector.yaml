@@ -2,7 +2,7 @@
 ---
 Detector:
   # 灰度二值化阈值（亮度高于此视为发光体）
-  BinaryThresh: 200
+  BinaryThresh: 90
   MinArea: 30.0          # 最小连通区域面积
   MinFoundFrame: 3       # 连续检测多少帧才确认为目标
 
@@ -18,6 +18,9 @@ Detector:
   # 实际: 宽5cm, 高4.5cm, 宽高比 ≈ 1.11
   RectRatioTarget: 1.11  # 目标矩形宽高比
   RectRatioTolerance: 0.7 # 宽高比容差（允许 0.41 ~ 1.81）
+
+  # 敌方颜色（"red" 或 "blue"）
+  EnemyColor: "red"
 
   # 偏置值（激光对准目标时的 error 值，补偿相机与激光安装位置差异）
   YawOffset: 0.0
