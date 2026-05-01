@@ -14,6 +14,7 @@ struct DetectionResult {
   bool is_locked;        // 是否锁定
   cv::Point2f center;    // 目标中心点
   float error_x;         // X 轴偏差
+  float error_y;         // Y 轴偏差 (pitch)
   cv::Point2f corners[4]; // 目标矩形四个角点: TL, TR, BR, BL
 };
 
@@ -50,6 +51,10 @@ private:
   // 实际: 宽5cm, 高4.5cm, 宽高比 ≈ 1.11
   double rect_ratio_target_ = 1.11;  // 目标宽高比
   double rect_ratio_tolerance_ = 0.7; // 宽高比容差（允许 0.41 ~ 1.81）
+
+  // 偏置值（补偿相机与激光安装位置差异）
+  double yaw_offset_ = 0.0;
+  double pitch_offset_ = 0.0;
 
   int found_count_ = 0;
   cv::Mat gray_, mask_;

@@ -7,7 +7,7 @@ Camera::Camera()
 
 Camera::~Camera() { close(); }
 
-bool Camera::init(const std::string &config_path) {
+bool Camera::init(const std::string &config_path, float target_fps) {
   int nRet = MV_OK;
 
   // 1. 枚举设备
@@ -52,6 +52,23 @@ bool Camera::init(const std::string &config_path) {
     std::cerr << "Open Device fail! nRet [0x" << std::hex << nRet << "]"
               << std::endl;
     return false;
+  }
+
+  if (target_fps > 0.0f) {
+    nRet = MV_CC_SetBoolValue(handle_, "AcquisitionFrameRateEnable", true);
+    if (MV_OK != nRet) {
+      std::cerr << "Enable AcquisitionFrameRate fail! nRet [0x" << std::hex
+                << nRet << "]" << std::endl;
+    }
+
+    nRet = MV_CC_SetFrameRate(handle_, target_fps);
+    if (MV_OK != nRet) {
+      std::cerr << "Set FrameRate fail! nRet [0x" << std::hex << nRet << "]"
+                << std::endl;
+    } else {
+      std::cout << "Set FrameRate: " << std::dec << target_fps << " fps"
+                << std::endl;
+    }
   }
 
   // 4. 加载参数

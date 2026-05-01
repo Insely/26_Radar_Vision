@@ -34,6 +34,11 @@ bool Detector::init(const std::string &config_path) {
   if (!fs["Detector"]["RectRatioTolerance"].empty())
     fs["Detector"]["RectRatioTolerance"] >> rect_ratio_tolerance_;
 
+  if (!fs["Detector"]["YawOffset"].empty())
+    fs["Detector"]["YawOffset"] >> yaw_offset_;
+  if (!fs["Detector"]["PitchOffset"].empty())
+    fs["Detector"]["PitchOffset"] >> pitch_offset_;
+
   std::cout << "[Detector] Config Loaded: "
             << "BinaryThresh=" << binary_thresh_
             << ", MinArea=" << min_area_
@@ -58,6 +63,10 @@ void Detector::preprocess(const cv::Mat &input) {
   // 闭运算填补内部空隙
   cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
   cv::morphologyEx(mask_, mask_, cv::MORPH_CLOSE, kernel);
+
+  // 高斯模糊 + 再次二值化，平滑边缘锯齿
+  cv::GaussianBlur(mask_, mask_, cv::Size(5, 5), 0);
+  cv::threshold(mask_, mask_, 128, 255, cv::THRESH_BINARY);
 }
 
 // 从 RotatedRect 构造 LightBar，计算长轴两端点
@@ -112,31 +121,8 @@ bool Detector::findTarget(const cv::Mat &input, cv::Point2f &best_center,
     }
   }
 
-  // --- 粘连/单色块兜底 ---
+  // 灯条不足两条，无法配对，直接判定未识别
   if (bars.size() < 2) {
-    // 只找到一个色块或全部粘连，直接用最大色块做凸包
-    if (!contours.empty()) {
-      size_t max_idx = 0;
-      double max_area = 0;
-      for (size_t i = 0; i < contours.size(); ++i) {
-        double a = cv::contourArea(contours[i]);
-        if (a > max_area) {
-          max_area = a;
-          max_idx = i;
-        }
-      }
-      std::vector<cv::Point> hull;
-      cv::convexHull(contours[max_idx], hull);
-      // 填充小空洞
-      cv::drawContours(mask_, std::vector<std::vector<cv::Point>>{hull}, 0, 255, cv::FILLED);
-      // 再次提取角点
-      cv::RotatedRect rect = cv::minAreaRect(hull);
-      cv::Point2f pts[4];
-      rect.points(pts);
-      for (int i = 0; i < 4; ++i) corners[i] = pts[i];
-      best_center = rect.center;
-      return true;
-    }
     return false;
   }
 
@@ -219,12 +205,21 @@ DetectionResult Detector::process(const cv::Mat &frame) {
   }
 
   DetectionResult result;
-  result.center = current_center;
   result.is_locked = (found_count_ >= min_found_frame_);
-  result.error_x = current_center.x - (frame.cols / 2.0f);
 
-  for (int i = 0; i < 4; i++)
-    result.corners[i] = corners[i];
+  if (result.is_locked) {
+    result.center = current_center;
+    result.error_x = current_center.x - (frame.cols / 2.0f) - (float)yaw_offset_;
+    result.error_y = current_center.y - (frame.rows / 2.0f) - (float)pitch_offset_;
+    for (int i = 0; i < 4; i++)
+      result.corners[i] = corners[i];
+  } else {
+    result.center = cv::Point2f(0, 0);
+    result.error_x = 0;
+    result.error_y = 0;
+    for (int i = 0; i < 4; i++)
+      result.corners[i] = cv::Point2f(0, 0);
+  }
 
   return result;
 }

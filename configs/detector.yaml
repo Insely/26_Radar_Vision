@@ -19,4 +19,8 @@ Detector:
   RectRatioTarget: 1.11  # 目标矩形宽高比
   RectRatioTolerance: 0.7 # 宽高比容差（允许 0.41 ~ 1.81）
 
+  # 偏置值（激光对准目标时的 error 值，补偿相机与激光安装位置差异）
+  YawOffset: 0.0
+  PitchOffset: 0.0
+
 

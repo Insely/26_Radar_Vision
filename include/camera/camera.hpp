@@ -15,7 +15,7 @@ public:
 
   // 初始化相机：枚举设备、创建句柄、打开设备
   // config_path: 配置文件路径 (YAML)
-  bool init(const std::string &config_path = "");
+  bool init(const std::string &config_path = "", float target_fps = 0.0f);
 
   // 获取一帧图像 (内部处理了格式转换)
   bool getFrame(cv::Mat &frame);
