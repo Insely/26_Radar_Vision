@@ -20,7 +20,7 @@ Detector:
   RectRatioTolerance: 0.7 # 宽高比容差（允许 0.41 ~ 1.81）
 
   # 敌方颜色（"red" 或 "blue"）
-  EnemyColor: "red"
+  EnemyColor: "blue"
 
   # 偏置值（激光对准目标时的 error 值，补偿相机与激光安装位置差异）
   YawOffset: 0.0
