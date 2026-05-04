@@ -9,12 +9,13 @@
 #include <mutex>
 #include <thread>
 
-// ============ 共享数据 ============
 std::mutex frame_mtx;
+std::condition_variable frame_cv;
 cv::Mat shared_frame;
 bool frame_ready = false;
 
 std::mutex result_mtx;
+std::condition_variable result_cv;
 DetectionResult shared_result;
 cv::Mat shared_display_frame;
 cv::Mat shared_mask;
@@ -23,19 +24,17 @@ cv::Mat shared_gray;
 bool result_ready = false;
 
 std::atomic<bool> running{true};
-int g_demo_frame_delay_ms = 0; // demo视频帧间隔(ms)，0=不限速
+int g_demo_frame_delay_ms = 0;
 
-// ============ 取帧线程 ============
 void captureThread(Camera &camera, cv::VideoCapture &video_cap,
                    bool use_camera) {
   while (running) {
-    // demo模式：等上一帧被消费后再取下一帧，避免跳帧
     if (!use_camera) {
-      {
-        std::lock_guard<std::mutex> lock(frame_mtx);
-        if (frame_ready)
-          continue; // 上一帧还没被消费，等一等
-      }
+      std::unique_lock<std::mutex> lock(frame_mtx);
+      frame_cv.wait(lock, [] { return !frame_ready || !running; });
+      if (!running)
+        break;
+      lock.unlock();
       if (g_demo_frame_delay_ms > 0) {
         std::this_thread::sleep_for(
             std::chrono::milliseconds(g_demo_frame_delay_ms));
@@ -53,41 +52,37 @@ void captureThread(Camera &camera, cv::VideoCapture &video_cap,
         continue;
       }
     }
+
     {
-      std::lock_guard<std::mutex> lock(frame_mtx);
-      shared_frame = frame;
+      std::unique_lock<std::mutex> lock(frame_mtx);
+      std::swap(shared_frame, frame);
       frame_ready = true;
     }
+    frame_cv.notify_one();
   }
 }
 
-// ============ 检测+通信线程 ============
 void detectThread(Detector &detector, SerialPort &serial) {
   while (running) {
     cv::Mat frame;
     {
-      std::lock_guard<std::mutex> lock(frame_mtx);
-      if (!frame_ready)
-        continue;
-      frame = shared_frame.clone();
+      std::unique_lock<std::mutex> lock(frame_mtx);
+      frame_cv.wait(lock, [] { return frame_ready || !running; });
+      if (!running && !frame_ready)
+        break;
+      std::swap(frame, shared_frame);
       frame_ready = false;
     }
 
-    // 检测
     DetectionResult result = detector.process(frame);
 
-    // 串口通信
     if (result.is_locked) {
       VisionData packet;
-      packet.yaw_error = (int)result.error_x;
-      packet.pitch_error = (int)result.error_y;
+      packet.yaw_error = result.error_x;
+      packet.pitch_error = result.error_y;
       packet.at_center = (std::abs(packet.yaw_error) < 10.0f &&
                           std::abs(packet.pitch_error) < 10.0f) ? 1 : 0;
-      if (packet.at_center == 1) {
-        packet.allow_fire = 1;
-      } else {
-        packet.allow_fire = 0;
-      }
+      packet.allow_fire = (packet.at_center == 1) ? 1 : 0;
       serial.send(packet);
     } else {
       VisionData lost_packet;
@@ -98,7 +93,6 @@ void detectThread(Detector &detector, SerialPort &serial) {
       serial.send(lost_packet);
     }
 
-    // 绘图（准备给主线程显示）
     cv::Mat display = frame.clone();
     if (result.is_locked) {
       for (int i = 0; i < 4; i++) {
@@ -117,15 +111,20 @@ void detectThread(Detector &detector, SerialPort &serial) {
                   cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 255), 2);
     }
 
+    cv::Mat mask = detector.getMask();
+    cv::Mat roi_disp = detector.getRoiDisplay();
+    cv::Mat gray = detector.getGray();
+
     {
-      std::lock_guard<std::mutex> lock(result_mtx);
-      shared_display_frame = display;
-      shared_mask = detector.getMask().clone();
-      shared_roi_display = detector.getRoiDisplay().clone();
-      shared_gray = detector.getGray().clone();
+      std::unique_lock<std::mutex> lock(result_mtx);
+      std::swap(shared_display_frame, display);
+      std::swap(shared_mask, mask);
+      std::swap(shared_roi_display, roi_disp);
+      std::swap(shared_gray, gray);
       shared_result = result;
       result_ready = true;
     }
+    result_cv.notify_one();
   }
 }
 
@@ -134,7 +133,7 @@ int main() {
   bool use_demo = false, enable_ui = true;
   bool show_binarized = true, show_gray = false, show_roi = true;
   int camera_fps = 120;
-  int demo_fps_cfg = 0; // 0=自动读取视频原始帧率
+  int demo_fps_cfg = 0;
   int display_wait_ms = 1000 / camera_fps;
   std::string serial_port = "/dev/ttyUSB0";
   int serial_baud = 115200;
@@ -162,7 +161,6 @@ int main() {
               << std::endl;
   }
 
-  // 串口初始化
   SerialPort serial(serial_port, serial_baud);
   serial.init();
 
@@ -171,7 +169,6 @@ int main() {
   cv::VideoCapture video_cap;
 
   if (use_demo) {
-    // YAML 中明确指定使用 demo 视频
     std::cerr << "Using demo.mp4" << std::endl;
     video_cap.open("../demo.mp4");
     if (!video_cap.isOpened()) {
@@ -191,7 +188,6 @@ int main() {
                 << std::endl;
     }
   } else {
-    // 使用工业相机
     use_camera = camera.init("../configs/Camera.yaml", camera_fps);
     if (!use_camera) {
       std::cerr << "ERROR: Camera init failed! No camera found." << std::endl;
@@ -220,12 +216,10 @@ int main() {
     }
   }
 
-  // 启动取帧线程和检测线程
   std::thread cap_thread(captureThread, std::ref(camera), std::ref(video_cap),
                          use_camera);
   std::thread det_thread(detectThread, std::ref(detector), std::ref(serial));
 
-  // 主线程负责 UI 显示
   auto fps_start = std::chrono::steady_clock::now();
   int fps_count = 0;
   double fps_value = 0.0;
@@ -234,17 +228,16 @@ int main() {
     if (enable_ui) {
       cv::Mat display, mask, roi_disp, gray;
       {
-        std::lock_guard<std::mutex> lock(result_mtx);
+        std::unique_lock<std::mutex> lock(result_mtx);
         if (result_ready) {
-          display = shared_display_frame.clone();
-          mask = shared_mask.clone();
-          roi_disp = shared_roi_display.clone();
-          gray = shared_gray.clone();
+          std::swap(display, shared_display_frame);
+          std::swap(mask, shared_mask);
+          std::swap(roi_disp, shared_roi_display);
+          std::swap(gray, shared_gray);
           result_ready = false;
         }
       }
       if (!display.empty()) {
-        // 计算 FPS
         fps_count++;
         auto now = std::chrono::steady_clock::now();
         double elapsed = std::chrono::duration<double>(now - fps_start).count();
@@ -275,14 +268,17 @@ int main() {
       int key = cv::waitKey(display_wait_ms);
       if (key == 27) {
         running = false;
+        frame_cv.notify_all();
+        result_cv.notify_all();
         break;
       }
     } else {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::unique_lock<std::mutex> lock(result_mtx);
+      result_cv.wait_for(lock, std::chrono::milliseconds(100),
+                         [] { return !running; });
     }
   }
 
-  // 等待线程结束
   cap_thread.join();
   det_thread.join();
 

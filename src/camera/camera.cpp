@@ -166,10 +166,17 @@ bool Camera::init(const std::string &config_path, float target_fps) {
   }
   nDataSize_ = stParam.nCurValue;
   pData_ = (unsigned char *)malloc(nDataSize_);
-  // RGB buffer, max size estimate (width * height * 3)
-  // 假设 5MP (2592*1944*3) 约 15MB. PayloadSize通常是Raw大小.
-  // 安全起见给个大点的固定值 或基于 PayloadSize * 3 if mono8 -> rgb
+  if (!pData_) {
+    std::cerr << "Failed to allocate raw image buffer" << std::endl;
+    return false;
+  }
   pDataForRGB_ = (unsigned char *)malloc(nDataSize_ * 3 + 2048);
+  if (!pDataForRGB_) {
+    std::cerr << "Failed to allocate RGB conversion buffer" << std::endl;
+    free(pData_);
+    pData_ = nullptr;
+    return false;
+  }
 
   // 5. 开始取流
   nRet = MV_CC_StartGrabbing(handle_);
@@ -196,8 +203,6 @@ bool Camera::getFrame(cv::Mat &frame) {
   int nRet =
       MV_CC_GetOneFrameTimeout(handle_, pData_, nDataSize_, &stImageInfo, 1000);
   if (MV_OK != nRet) {
-    // std::cerr << "Get Frame fail! nRet [0x" << std::hex << nRet << "]" <<
-    // std::endl;
     return false;
   }
 
