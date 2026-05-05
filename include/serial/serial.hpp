@@ -10,8 +10,7 @@ struct VisionData {
     uint8_t  header = 0xA5;    // 1. 帧头校验 0xA5
     float    yaw_error;        // 2. 水平偏差 (float, 4字节)
     float    pitch_error;      // 3. 垂直偏差 (float, 4字节)
-    uint8_t  at_center;        // 4. 是否到达中心 (0/1)
-    uint8_t  allow_fire;       // 5. 是否允许发射 (0/1)
+    uint8_t  target_detected;  // 4. 是否识别到目标 (0/1)
 } __attribute__((packed));     // 确保字节对齐
 
 class SerialPort {

@@ -19,11 +19,28 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 find_package(Threads REQUIRED)
 
+# 海康机器人 MVS SDK
 find_library(MVS_LIB MvCameraControl PATHS /opt/MVS/lib/64 /opt/MVS/lib /usr/lib NO_DEFAULT_PATH)
 if (MVS_LIB)
-    message(STATUS "Found MVS SDK: ${MVS_LIB}")
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} ${MVS_LIB} Threads::Threads)
+    message(STATUS "Found Hikrobot MVS SDK: ${MVS_LIB}")
 else()
-    message(WARNING "MVS SDK not found! Compilation might fail.")
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} Threads::Threads)
+    message(WARNING "Hikrobot MVS SDK not found!")
 endif()
+
+# 迈德威视 MindVision SDK
+find_library(MVSDK_LIB MVSDK PATHS /lib /usr/lib)
+if (MVSDK_LIB)
+    message(STATUS "Found MindVision SDK: ${MVSDK_LIB}")
+else()
+    message(WARNING "MindVision SDK not found!")
+endif()
+
+set(CAMERA_LIBS "")
+if (MVS_LIB)
+    list(APPEND CAMERA_LIBS ${MVS_LIB})
+endif()
+if (MVSDK_LIB)
+    list(APPEND CAMERA_LIBS ${MVSDK_LIB})
+endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS} ${CAMERA_LIBS} Threads::Threads)

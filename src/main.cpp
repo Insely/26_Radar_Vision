@@ -80,16 +80,13 @@ void detectThread(Detector &detector, SerialPort &serial) {
       VisionData packet;
       packet.yaw_error = result.error_x;
       packet.pitch_error = result.error_y;
-      packet.at_center = (std::abs(packet.yaw_error) < 10.0f &&
-                          std::abs(packet.pitch_error) < 10.0f) ? 1 : 0;
-      packet.allow_fire = (packet.at_center == 1) ? 1 : 0;
+      packet.target_detected = 1;
       serial.send(packet);
     } else {
       VisionData lost_packet;
       lost_packet.yaw_error = 0;
       lost_packet.pitch_error = 0;
-      lost_packet.at_center = 0;
-      lost_packet.allow_fire = 0;
+      lost_packet.target_detected = 0;
       serial.send(lost_packet);
     }
 

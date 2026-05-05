@@ -1,9 +1,24 @@
 %YAML:1.0
 ---
-Camera:
+# 相机类型选择: "hikrobot" (海康机器人) 或 "mindvision" (迈德威视)
+CameraType: "hikrobot"
+
+# 海康机器人相机参数
+Hikrobot:
   Width: 0               # 图像宽度 (0=相机最大值, 需为2或4的倍数)
   Height: 0              # 图像高度 (0=相机最大值, 需为2或4的倍数)
   ExposureTime: 1000.0   # 曝光时间 (us)
   Gain: 10.0             # 增益
   Gamma: 0.8             # Gamma
   TriggerMode: 0         # 0: Continuous, 1: External
+  Flip180: 1             # 画面翻转180度 (0: 关闭, 1: 开启)
+
+# 迈德威视相机参数
+MindVision:
+  Width: 0               # 图像宽度 (0=相机最大值)
+  Height: 0              # 图像高度 (0=相机最大值)
+  ExposureTime: 1000.0   # 曝光时间 (us)
+  AnalogGain: 1          # 模拟增益 (增益档位索引)
+  Gamma: 100             # Gamma (0~800, 100=1.0)
+  TriggerMode: 0         # 0: Continuous, 1: Software, 2: Hardware
+  Flip180: 0             # 画面翻转180度 (0: 关闭, 1: 开启)
