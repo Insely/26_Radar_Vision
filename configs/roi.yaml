@@ -1,0 +1,35 @@
+%YAML:1.0
+---
+ROI:
+  # ============ HSV 色块抓取阈值（从全图定位候选 ROI 区域） ============
+  # 红色目标（双区间 H 通道）
+  RedHLow1: 0
+  RedSLow1: 50
+  RedVLow1: 50
+  RedHHigh1: 10
+  RedSHigh1: 255
+  RedVHigh1: 255
+  RedHLow2: 170
+  RedSLow2: 50
+  RedVLow2: 50
+  RedHHigh2: 180
+  RedSHigh2: 255
+  RedVHigh2: 255
+
+  # 蓝色目标
+  BlueHLow: 100
+  BlueSLow: 50
+  BlueVLow: 50
+  BlueHHigh: 130
+  BlueSHigh: 255
+  BlueVHigh: 255
+
+  # ============ 候选区域参数 ============
+  # 色块最小面积阈值（低于此面积的色块不作为候选）
+  MinBlobArea: 100.0
+  # 最大候选区域数量（取面积最大的前 N 个）
+  MaxCandidates: 5
+  # 每个候选区域停留时间（秒），未识别到目标时轮切
+  DwellTime: 0.5
+  # ROI 扩展系数（padding = max(w,h) * PadRatio）
+  PadRatio: 0.5

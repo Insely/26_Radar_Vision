@@ -25,6 +25,8 @@ bool result_ready = false;
 
 std::atomic<bool> running{true};
 int g_demo_frame_delay_ms = 0;
+bool g_enable_ui = true;
+bool g_show_camera = true;
 
 void captureThread(Camera &camera, cv::VideoCapture &video_cap,
                    bool use_camera) {
@@ -91,21 +93,23 @@ void detectThread(Detector &detector, SerialPort &serial) {
     }
 
     cv::Mat display = frame.clone();
-    if (result.is_locked) {
-      for (int i = 0; i < 4; i++) {
-        cv::circle(display, result.corners[i], 5, cv::Scalar(0, 255, 255), -1);
-        cv::line(display, result.corners[i], result.corners[(i + 1) % 4],
-                 cv::Scalar(0, 255, 0), 2);
+    if (g_enable_ui) {
+      if (result.is_locked) {
+        for (int i = 0; i < 4; i++) {
+          cv::circle(display, result.corners[i], 5, cv::Scalar(0, 255, 255), -1);
+          cv::line(display, result.corners[i], result.corners[(i + 1) % 4],
+                   cv::Scalar(0, 255, 0), 2);
+        }
+        cv::circle(display, result.center, 8, cv::Scalar(0, 0, 255), -1);
+        std::string info =
+            "LOCKED | Yaw: " + std::to_string((int)result.error_x) +
+            " Pitch: " + std::to_string((int)result.error_y);
+        cv::putText(display, info, cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX,
+                    0.8, cv::Scalar(0, 255, 0), 2);
+      } else {
+        cv::putText(display, "SEARCHING...", cv::Point(30, 50),
+                    cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 255), 2);
       }
-      cv::circle(display, result.center, 8, cv::Scalar(0, 0, 255), -1);
-      std::string info =
-          "LOCKED | Yaw: " + std::to_string((int)result.error_x) +
-          " Pitch: " + std::to_string((int)result.error_y);
-      cv::putText(display, info, cv::Point(30, 50), cv::FONT_HERSHEY_SIMPLEX,
-                  0.8, cv::Scalar(0, 255, 0), 2);
-    } else {
-      cv::putText(display, "SEARCHING...", cv::Point(30, 50),
-                  cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 255), 2);
     }
 
     cv::Mat mask = detector.getMask();
@@ -127,7 +131,7 @@ void detectThread(Detector &detector, SerialPort &serial) {
 
 int main() {
   cv::FileStorage sysfs;
-  bool use_demo = false, enable_ui = true;
+  bool use_demo = false, enable_ui = true, show_camera = true;
   bool show_binarized = true, show_gray = false, show_roi = true;
   int camera_fps = 120;
   int demo_fps_cfg = 0;
@@ -139,6 +143,8 @@ int main() {
       sysfs["UseDemoVideo"] >> use_demo;
     if (!sysfs["EnableUI"].empty())
       sysfs["EnableUI"] >> enable_ui;
+    if (!sysfs["ShowCamera"].empty())
+      sysfs["ShowCamera"] >> show_camera;
     if (!sysfs["ShowBinarized"].empty())
       sysfs["ShowBinarized"] >> show_binarized;
     if (!sysfs["ShowGray"].empty())
@@ -153,6 +159,8 @@ int main() {
       sysfs["SerialPort"] >> serial_port;
     if (!sysfs["SerialBaud"].empty())
       sysfs["SerialBaud"] >> serial_baud;
+    g_enable_ui = enable_ui;
+    g_show_camera = show_camera;
   } else {
     std::cerr << "Warning: setting.yaml not found, using defaults"
               << std::endl;
@@ -195,10 +203,14 @@ int main() {
 
   Detector detector;
   detector.init("../configs/detector.yaml");
+  detector.initROI("../configs/roi.yaml");
 
-  if (enable_ui) {
-    cv::namedWindow("demo", cv::WINDOW_NORMAL);
-    cv::resizeWindow("demo", 800, 600);
+  bool any_window = show_camera || show_binarized || show_gray || show_roi;
+  if (any_window) {
+    if (show_camera) {
+      cv::namedWindow("demo", cv::WINDOW_NORMAL);
+      cv::resizeWindow("demo", 800, 600);
+    }
     if (show_binarized) {
       cv::namedWindow("Binarized", cv::WINDOW_NORMAL);
       cv::resizeWindow("Binarized", 800, 600);
@@ -222,7 +234,7 @@ int main() {
   double fps_value = 0.0;
 
   while (running) {
-    if (enable_ui) {
+    if (any_window) {
       cv::Mat display, mask, roi_disp, gray;
       {
         std::unique_lock<std::mutex> lock(result_mtx);
@@ -251,7 +263,8 @@ int main() {
                     cv::Point(display.cols - text_size.width - 15, 35),
                     cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
 
-        cv::imshow("demo", display);
+        if (show_camera)
+          cv::imshow("demo", display);
       }
       if (show_binarized && !mask.empty()) {
         cv::imshow("Binarized", mask);
