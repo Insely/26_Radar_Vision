@@ -1,7 +1,7 @@
 %YAML:1.0
 ---
 # 相机类型选择: "hikrobot" (海康机器人) 或 "mindvision" (迈德威视)
-CameraType: "hikrobot"
+CameraType: "mindvision"
 
 # 海康机器人相机参数
 Hikrobot:

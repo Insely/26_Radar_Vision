@@ -20,4 +20,4 @@ DemoFPS: 30
 # 串口设备名
 SerialPort: "/dev/ttyACM0"
 # 串口波特率
-SerialBaud: 115200
+SerialBaud: 921600

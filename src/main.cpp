@@ -27,6 +27,9 @@ std::atomic<bool> running{true};
 int g_demo_frame_delay_ms = 0;
 bool g_enable_ui = true;
 bool g_show_camera = true;
+bool g_show_binarized = true;
+bool g_show_gray = false;
+bool g_show_roi = true;
 
 void captureThread(Camera &camera, cv::VideoCapture &video_cap,
                    bool use_camera) {
@@ -92,8 +95,9 @@ void detectThread(Detector &detector, SerialPort &serial) {
       serial.send(lost_packet);
     }
 
-    cv::Mat display = frame.clone();
+    cv::Mat display;
     if (g_enable_ui) {
+      display = frame.clone();
       if (result.is_locked) {
         for (int i = 0; i < 4; i++) {
           cv::circle(display, result.corners[i], 5, cv::Scalar(0, 255, 255), -1);
@@ -112,9 +116,13 @@ void detectThread(Detector &detector, SerialPort &serial) {
       }
     }
 
-    cv::Mat mask = detector.getMask();
-    cv::Mat roi_disp = detector.getRoiDisplay();
-    cv::Mat gray = detector.getGray();
+    cv::Mat mask, roi_disp, gray;
+    if (g_show_binarized)
+      mask = detector.getMask();
+    if (g_show_roi)
+      roi_disp = detector.getRoiDisplay();
+    if (g_show_gray)
+      gray = detector.getGray();
 
     {
       std::unique_lock<std::mutex> lock(result_mtx);
@@ -161,6 +169,9 @@ int main() {
       sysfs["SerialBaud"] >> serial_baud;
     g_enable_ui = enable_ui;
     g_show_camera = show_camera;
+    g_show_binarized = show_binarized;
+    g_show_gray = show_gray;
+    g_show_roi = show_roi;
   } else {
     std::cerr << "Warning: setting.yaml not found, using defaults"
               << std::endl;

@@ -141,10 +141,6 @@ void Detector::preprocess(const cv::Mat &input) {
       blobs.push_back({cv::boundingRect(contour), a});
     }
   }
-  std::sort(blobs.begin(), blobs.end(),
-            [](const BlobInfo &a, const BlobInfo &b) { return a.area > b.area; });
-
-  // 如果有上一帧目标位置，按距离上次目标中心的距离升序排列，否则保持面积降序
   if (has_last_target_) {
     cv::Point2f lc = last_target_center_;
     std::sort(blobs.begin(), blobs.end(),
@@ -157,6 +153,9 @@ void Detector::preprocess(const cv::Mat &input) {
                 float db = (cb.x - lc.x) * (cb.x - lc.x) + (cb.y - lc.y) * (cb.y - lc.y);
                 return da < db;
               });
+  } else {
+    std::sort(blobs.begin(), blobs.end(),
+              [](const BlobInfo &a, const BlobInfo &b) { return a.area > b.area; });
   }
 
   // 取前 MaxCandidates 个作为候选 ROI
@@ -180,7 +179,6 @@ void Detector::preprocess(const cv::Mat &input) {
     roi = roi_candidates_[current_roi_index_];
   }
 
-  color_mask_ = color_mask.clone();
   roi_display_ = input(roi).clone();
   roi_ = roi;
 
