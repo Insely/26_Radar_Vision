@@ -34,4 +34,4 @@ ROI:
   # 每个候选区域停留时间（秒），未识别到目标时轮切
   DwellTime: 0.1
   # ROI 扩展系数（padding = max(w,h) * PadRatio）
-  PadRatio: 0.8
+  PadRatio: 1.9
