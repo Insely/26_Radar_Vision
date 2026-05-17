@@ -53,6 +53,12 @@ private:
   double yaw_offset_ = 0.0;
   double pitch_offset_ = 0.0;
 
+  int h_kernel_w_ = 15;
+  int h_kernel_h_ = 3;
+  int v_kernel_w_ = 15;
+  int v_kernel_h_ = 15;
+  int close_kernel_size_ = 5;
+
   int found_count_ = 0;
   cv::Rect roi_;
   cv::Mat gray_, mask_, color_mask_, roi_display_;

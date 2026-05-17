@@ -22,6 +22,13 @@ Detector:
   # 敌方颜色（"red" 或 "blue"）
   EnemyColor: "blue"
 
+  # 形态学核参数（用于合并二值化色块间隙）
+  HKernelW: 15           # 水平膨胀核宽度（增大可合并更远的水平间隙）
+  HKernelH: 3            # 水平膨胀核高度
+  VKernelW: 15           # 垂直膨胀核宽度
+  VKernelH: 15           # 垂直膨胀核高度（增大可合并更远的垂直间隙）
+  CloseKernelSize: 5     # 闭运算核大小
+
   # 偏置值（激光对准目标时的 error 值，补偿相机与激光安装位置差异）
   YawOffset: -166.0
   PitchOffset: 133.0

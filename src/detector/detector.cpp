@@ -46,9 +46,20 @@ bool Detector::init(const std::string &config_path) {
   if (!fs["Detector"]["PitchOffset"].empty())
     fs["Detector"]["PitchOffset"] >> pitch_offset_;
 
-  dilate_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 15));
-  h_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 3));
-  close_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+  if (!fs["Detector"]["HKernelW"].empty())
+    fs["Detector"]["HKernelW"] >> h_kernel_w_;
+  if (!fs["Detector"]["HKernelH"].empty())
+    fs["Detector"]["HKernelH"] >> h_kernel_h_;
+  if (!fs["Detector"]["VKernelW"].empty())
+    fs["Detector"]["VKernelW"] >> v_kernel_w_;
+  if (!fs["Detector"]["VKernelH"].empty())
+    fs["Detector"]["VKernelH"] >> v_kernel_h_;
+  if (!fs["Detector"]["CloseKernelSize"].empty())
+    fs["Detector"]["CloseKernelSize"] >> close_kernel_size_;
+
+  dilate_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(v_kernel_w_, v_kernel_h_));
+  h_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(h_kernel_w_, h_kernel_h_));
+  close_kernel_ = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(close_kernel_size_, close_kernel_size_));
 
   std::cout << "[Detector] Config Loaded: "
             << "EnemyColor=" << (enemy_color_ == 0 ? "red" : "blue")
